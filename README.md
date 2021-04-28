@@ -6,7 +6,7 @@ Demo for [`<mpv-video>`](http://github.com/ruurdbijlsma/mpv-video) component.
 
 # Running the demo
 
-Only works on Windows x64 for now.
+Only tested on Windows x64 for now.
 
 1. Install mpv:
     * Windows: download [mpv-dev](https://mpv.srsfckn.biz/mpv-dev-latest.7z), unpack, put corresponding `mpv-1.dll` to `C:\Windows\system32`
