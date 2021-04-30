@@ -2,6 +2,7 @@
     <div id="app">
         <pre>&lt;mpv-video&gt;</pre>
         <mpv-video height="auto" controls ref="video1" class="video"
+                   start-time="30"
                    src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
         />
 
@@ -19,7 +20,7 @@
 
 <script>
 
-import MpvVideo from "mpv-video";
+import MpvVideo from "./MpvVideo/MpvVideo";
 
 export default {
     name: 'App',

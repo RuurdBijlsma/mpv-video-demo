@@ -3,8 +3,6 @@
          :style="mainStyle"
          @mousemove="moveOverPlayer"
          ref="player"
-         @keydown="handleKey"
-         @wheel="handleScroll"
          tabindex="1">
         <media-control
             :paused="paused"
@@ -14,13 +12,13 @@
         <loading-ring class="loading-ring" :style="{opacity: buffering ? 1 : 0}"/>
         <div
             class="canvas-center" :style="{
-                backgroundImage: poster === '' ? 'none' : `url(${poster})`,
+                backgroundImage: !isNaN(duration) || poster === '' ? 'none' : `url(${poster})`,
                 backgroundSize: coverPoster ? 'cover' : 'contain',
             }"
         >
             <mpv-embed
                 :style="{
-                    opacity: poster === '' || firstPlayLoaded ? 1 : 0,
+                    opacity: !isNaN(duration) || poster === '' || firstPlayLoaded ? 1 : 0,
                 }"
                 class="embed"
                 ref="mpv"
@@ -90,6 +88,10 @@ export default {
             default: false,
         },
         // ---------- Miscellaneous -------- //
+        startTime: {
+            type: Number,
+            default: 0,
+        },
         hideBuffering: {
             type: Boolean,
             default: false,
@@ -98,19 +100,7 @@ export default {
             type: Boolean,
             default: false,
         },
-        dark: {
-            type: Boolean,
-            default: false,
-        },
-        enableStatus: {
-            type: Boolean,
-            default: false,
-        },
-        enableScroll: {
-            type: Boolean,
-            default: false,
-        },
-        enableKeys: {
+        disableAutoHideCursor: {
             type: Boolean,
             default: false,
         },
@@ -135,6 +125,7 @@ export default {
         resizeInterval: -1,
         firstPlayLoaded: false,
         pressedPlay: false,
+        fullscreen: false,
         // Video element properties //
         defaultPlaybackRate: 1,
         playbackRate: 1,
@@ -244,6 +235,7 @@ export default {
                     break;
                 case 'duration':
                     this.duration = value;
+                    this.$emit('durationchange', this.duration);
                     break;
                 case 'time-pos':
                     this.dontWatchTime = true;
@@ -262,6 +254,7 @@ export default {
                         this.$emit('canplaythrough');
                     } else {
                         this.buffering = true;
+                        this.$emit('playing');
                     }
                     break;
                 case 'ao-mute':
@@ -269,6 +262,7 @@ export default {
                     break;
                 case 'ao-volume':
                     this.volume = value / 100;
+                    this.$emit('volumechange', this.volume);
                     break;
                 case 'seeking':
                     if (value) {
@@ -348,43 +342,6 @@ export default {
         msToTime(ms, keepMs = false) {
             return utils.msToTime(ms, keepMs);
         },
-        handleScroll(e) {
-            if (!this.enableScroll)
-                return;
-            this.player.volume -= e.deltaY / 20;
-        },
-        handleKey(e) {
-            if (!this.enableKeys)
-                return;
-            switch (true) {
-                case e.key === ' ':
-                    this.player.togglePause();
-                    break;
-                case e.key === 'ArrowRight':
-                    this.player.time += 10000;
-                    break;
-                case e.key === 'ArrowLeft':
-                    this.player.time -= 10000;
-                    break;
-                case e.key === 'ArrowUp':
-                    this.player.volume += 5;
-                    break;
-                case e.key === 'ArrowDown':
-                    this.player.volume -= 5;
-                    break;
-                case e.key === '=':
-                    let rateUp = this.player.input.rate * 1.25;
-                    this.player.input.rate = rateUp > 0.5 ? Math.round(rateUp * 4) / 4 : rateUp;
-                    break;
-                case e.key === '-':
-                    let rateDown = this.player.input.rate / 1.25;
-                    this.player.input.rate = rateDown > 0.5 ? Math.round(rateDown * 4) / 4 : rateDown;
-                    break;
-                case e.key === 'm':
-                    this.toggleMute();
-                    break;
-            }
-        },
         toggleMute() {
             let muted = this.player.state['ao-mute'] ?? false;
             this.player.state['ao-mute'] = !muted;
@@ -427,6 +384,7 @@ export default {
             this.currentTime = 0;
             this.error = null;
             this.buffering = true;
+            this.$emit('waiting');
             this.firstPlayLoaded = false;
 
             if (this.src === '') {
@@ -439,6 +397,7 @@ export default {
             this.player.command.loadFile(this.src);
             this.$once('play', () => this.firstPlayLoaded = true);
             this.$once('canplaythrough', () => {
+                this.$emit('playing');
                 this.player.state.pause = !this.autoplay && !this.pressedPlay;
                 this.pressedPlay = false;
             })
@@ -511,7 +470,7 @@ export default {
             let style = {
                 '--width': `${this.bounds.width}px`,
                 '--height': `${this.bounds.height}px`,
-                cursor: this.hideControls && !this.mouseOverControls && !this.paused ? 'none' : 'auto',
+                cursor: this.hideControls && !this.mouseOverControls && !this.disableAutoHideCursor && !this.paused ? 'none' : 'auto',
             }
             if (this.height === 'auto')
                 style.height = this.bounds.height + 'px';
@@ -656,6 +615,15 @@ export default {
         },
     },
     watch: {
+        startTime() {
+            this.player.state.start = this.startTime;
+        },
+        muted(n, o) {
+            console.log("muted change", n, o, 'this.muted', this.muted, 'this.player.mute', this.player.mute);
+            if (n !== o) {
+                this.player.state['ao-mute'] = this.muted;
+            }
+        },
         currentTime(newValue, oldValue) {
             if (newValue !== oldValue) {
                 this.$emit('timeupdate', newValue);
